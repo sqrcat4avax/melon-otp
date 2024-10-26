@@ -80,7 +80,7 @@ function cleanUserData() {
 
         // Launch the browser with user data directory set to the current directory
         const browser = await chromium.launchPersistentContext(path.join(__dirname, 'UserData'), {
-            headless: false,
+            headless: true,
         });
 
         const context = browser; // Using the persistent context
