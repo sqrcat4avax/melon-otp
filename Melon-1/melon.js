@@ -80,7 +80,7 @@ function cleanUserData() {
 
         // Launch the browser with user data directory set to the current directory
         const browser = await chromium.launchPersistentContext(path.join(__dirname, 'UserData'), {
-            headless: true,
+            headless: false,
         });
 
         const context = browser; // Using the persistent context
@@ -139,118 +139,104 @@ function cleanUserData() {
             // Step 8: Switch back to TempMail
             process.stdout.write(chalk.yellow('Switching back to TempMail...\n'));
             await tempMailPage.bringToFront();
-            await waitFor(5);
+            await waitFor(10);
             displayLoadingBar(++step, totalSteps);
 
-            // Step 9: Refresh TempMail page
-            process.stdout.write(chalk.yellow('Refreshing TempMail page...\n'));
-            await tempMailPage.reload(); // Refresh the TempMail page
-            await tempMailPage.waitForLoadState('load');
-            displayLoadingBar(++step, totalSteps);
-
-            // Step 10: Wait for OTP email to appear (up to 30 seconds)
-            process.stdout.write(chalk.magenta('Waiting for OTP email to appear (up to 30 seconds)...\n'));
+            // Step 9: Refresh TempMail page and check for OTP email
+            process.stdout.write(chalk.magenta('Waiting for OTP email (checking every 10 seconds, up to 6 attempts)...\n'));
             const emailCheckLocator = tempMailPage.locator('xpath=//*[@id="app"]/div/main/div/div/div[2]/div/div[2]/div/div');
+            let otpCode = null;
 
-            try {
-                await emailCheckLocator.waitFor({ state: 'visible', timeout: 10000 });
-                const otpTextElement = await tempMailPage.locator('xpath=//*[@id="app"]/div/main/div/div/div[2]/div/div[2]/div/div/p[2]');
-                const otpText = await otpTextElement.innerText();
-                const otpCode = otpText.match(/\d{6}/)[0];
+            for (let attempt = 1; attempt <= 6; attempt++) {
+                try {
+                    await emailCheckLocator.waitFor({ state: 'visible', timeout: 5000 });
+                    const otpTextElement = await tempMailPage.locator('xpath=//*[@id="app"]/div/main/div/div/div[2]/div/div[2]/div/div/p[2]');
+                    const otpText = await otpTextElement.innerText();
+                    otpCode = otpText.match(/\d{6}/)[0];
 
-                process.stdout.write(chalk.green(`OTP code retrieved: ${otpCode}\n`));
-                displayLoadingBar(++step, totalSteps);
+                    process.stdout.write(chalk.green(`OTP code retrieved: ${otpCode}\n`));
+                    displayLoadingBar(++step, totalSteps);
+                    break; // Exit loop once OTP is retrieved
+                } catch {
+                    process.stdout.write(chalk.yellow(`Attempt ${attempt}: OTP not found, refreshing TempMail page...\n`));
+                    await tempMailPage.reload();
+                    await tempMailPage.waitForLoadState('load');
+                }
+            }
 
-                // Step 11: Enter OTP code
-                await melonPage.bringToFront();
-                process.stdout.write(chalk.cyan('Entering OTP code...\n'));
-                const verificationInput = melonPage.locator('xpath=//*[@id="app"]/div/div/div/div/div[3]/div/form/input[1]');
-                await verificationInput.waitFor({ state: 'visible' });
+            if (!otpCode) {
+                throw new Error('OTP code did not appear after 20 attempts, moving to next iteration.');
+            }
 
-                const digits = otpCode.split('');
-                for (let i = 0; i < digits.length; i++) {
-                    const inputSelector = `//*[@id="app"]/div/div/div/div/div[3]/div/form/input[${i + 1}]`;
-                    const inputField = melonPage.locator(`xpath=${inputSelector}`);
+            // Step 10: Enter OTP code
+            await melonPage.bringToFront();
+            process.stdout.write(chalk.cyan('Entering OTP code...\n'));
+            const verificationInput = melonPage.locator('xpath=//*[@id="app"]/div/div/div/div/div[3]/div/form/input[1]');
+            await verificationInput.waitFor({ state: 'visible' });
 
-                    await inputField.waitFor({ state: 'visible', timeout: 10000 });
-                    await inputField.scrollIntoViewIfNeeded();
+            const digits = otpCode.split('');
+            for (let i = 0; i < digits.length; i++) {
+                const inputSelector = `//*[@id="app"]/div/div/div/div/div[3]/div/form/input[${i + 1}]`;
+                const inputField = melonPage.locator(`xpath=${inputSelector}`);
 
-                    process.stdout.write(chalk.yellow(`Waiting 1 second before entering digit ${i + 1}...\n`));
-                    await waitFor(1); // Wait 1 second
+                await inputField.waitFor({ state: 'visible', timeout: 10000 });
+                await inputField.scrollIntoViewIfNeeded();
 
-                    await inputField.click({ timeout: 5000 });
-                    await inputField.fill(digits[i]);
-                    process.stdout.write(chalk.green(`Entered digit ${digits[i]} into field ${i + 1}\n`));
+                process.stdout.write(chalk.yellow(`Waiting 1 second before entering digit ${i + 1}...\n`));
+                await waitFor(1); // Wait 1 second
+
+                await inputField.click({ timeout: 5000 });
+                await inputField.fill(digits[i]);
+                process.stdout.write(chalk.green(`Entered digit ${digits[i]} into field ${i + 1}\n`));
+            }
+
+            process.stdout.write(chalk.green('OTP successfully entered.\n'));
+
+            // Step 11: Check for input field visibility and fill with random string
+            const inputFieldSelector = 'xpath=/html/body/main/div/div[1]/div[5]/div/div/input';
+            const buttonSelector = 'xpath=/html/body/main/div/div[1]/div[5]/div/div/button[1]';
+
+            const waitForInputField = async () => {
+                const checkInterval = 1000;
+                let elapsed = 0;
+                const timeout = 30000;
+
+                while (elapsed < timeout) {
+                    const isVisible = await melonPage.isVisible(inputFieldSelector);
+                    if (isVisible) {
+                        process.stdout.write(chalk.green("Input field is now visible, proceeding to next iteration...\n"));
+                        return true; // Proceed to next iteration
+                    }
+                    await waitFor(checkInterval / 1000); // Wait for 1 second
+                    elapsed += checkInterval;
                 }
 
-                process.stdout.write(chalk.green('OTP successfully entered.\n'));
+                return false;
+            };
 
-                // Step 12: Check for input field visibility and fill with random string
-                const inputFieldSelector = 'xpath=/html/body/main/div/div[1]/div[5]/div/div/input';
-                const buttonSelector = 'xpath=/html/body/main/div/div[1]/div[5]/div/div/button[1]'; // Selector for the button
-
-                const waitForInputField = async () => {
-                    const checkInterval = 1000; // 1 second
-                    let elapsed = 0;
-                    const timeout = 30000; // 30 seconds
-
-                    while (elapsed < timeout) {
-                        const isVisible = await melonPage.isVisible(inputFieldSelector);
-                        if (isVisible) return;
-
-                        await waitFor(checkInterval / 1000); // Wait before checking again
-                        elapsed += checkInterval;
-                    }
-                    throw new Error('Input field did not become visible within 30 seconds');
-                };
-
-                await waitForInputField();
-                process.stdout.write(chalk.blue('Input field is now visible, filling random string...\n'));
-
-                // Generate a random 6-digit alphanumeric string
-                const randomString = Math.random().toString(36).substring(2, 8);
-
-                await waitFor(1); // Wait 1 second
-                await melonPage.locator(inputFieldSelector).fill(randomString);
-                process.stdout.write(chalk.green(`Entered random string: ${randomString}\n`));
-
-                // Click the button after filling the input
-                await waitFor(1);
-                await melonPage.locator(buttonSelector).click();
-                process.stdout.write(chalk.blue('Clicked the button, waiting for 3 seconds...\n'));
-
-                // Wait for 3 seconds
-                await waitFor(3);
-
-                // Mark as successful
-                successCount++;
-                isReferralSuccessful = true; // Set success flag
-                process.stdout.write(chalk.green('Referral registration marked as successful!\n'));
-
-            } catch (error) {
-                process.stdout.write(chalk.red(`Error retrieving OTP: ${error.message}\n`));
-                failCount++;
+            const inputFieldVisible = await waitForInputField();
+            if (inputFieldVisible) {
+                isReferralSuccessful = true; // Mark success
+            } else {
+                process.stdout.write(chalk.red("Input field did not become visible within timeout.\n"));
+                isReferralSuccessful = false;
             }
 
         } catch (error) {
-            process.stdout.write(chalk.red(`Error during process: ${error.message}\n`));
-            failCount++;
-        } finally {
-            await context.close(); // Close the context after each iteration
-
-            if (!isReferralSuccessful) {
-                process.stdout.write(chalk.red('Referral failed!\n'));
-            }
+            process.stdout.write(chalk.red(`An error occurred: ${error.message}\n`));
+            isReferralSuccessful = false; // Mark failure
         }
 
-        displayLoadingBar(i, referralNumber);
-        process.stdout.write(chalk.yellow('\nIteration completed.\n'));
+        // Update success or fail count based on result
+        if (isReferralSuccessful) {
+            successCount++;
+        } else {
+            failCount++;
+        }
+
+        // Close browser and proceed to the next iteration
+        await browser.close();
     }
 
-    // Final summary
-    console.clear();
-    process.stdout.write(chalk.green(`Total Successful Registrations: ${successCount}\n`));
-    process.stdout.write(chalk.red(`Total Failed Registrations: ${failCount}\n`));
-
-    rl.close(); // Close the readline interface
+    rl.close();
 })();
