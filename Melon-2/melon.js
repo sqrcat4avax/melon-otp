@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const chalk = require('chalk');
+const randomUserAgent = require('random-user-agent');
 
 // Function to wait for a specific duration
 function waitFor(seconds) {
@@ -78,9 +79,13 @@ function cleanUserData() {
         process.stdout.write(chalk.green(`Success: ${successCount}\n`));
         process.stdout.write(chalk.red(`Fail: ${failCount}\n\n`));
 
-        // Launch the browser with user data directory set to the current directory
+        // Generate a random user agent
+        const userAgent = randomUserAgent.getRandom();
+
+        // Launch the browser with user data directory set to the current directory and the generated user agent
         const browser = await chromium.launchPersistentContext(path.join(__dirname, 'UserData'), {
             headless: true,
+            userAgent: userAgent, // Set the random user agent here
         });
 
         const context = browser; // Using the persistent context
@@ -109,7 +114,7 @@ function cleanUserData() {
             // Step 3: Open the second tab for Melon Games
             displayLoadingBar(++step, totalSteps);
 
-            await melonPage.goto('https://melongames.io/?invite=KYQQQHPQ');
+            await melonPage.goto('https://melongames.io/?invite=JMHETXFO');
             await melonPage.waitForLoadState('load');
 
             // Step 4: Perform actions on Melon Games page
@@ -196,55 +201,43 @@ function cleanUserData() {
 
                     while (elapsed < timeout) {
                         const isVisible = await melonPage.isVisible(inputFieldSelector);
-                        if (isVisible) return;
-
+                        if (isVisible) {
+                            await melonPage.fill(inputFieldSelector, 'random-string');
+                            await melonPage.click(buttonSelector); // Click the button after filling the field
+                            process.stdout.write(chalk.green('Input field filled and button clicked.\n'));
+                            isReferralSuccessful = true; // Mark as successful
+                            return; // Exit the loop and function
+                        }
                         await waitFor(checkInterval / 1000); // Wait before checking again
                         elapsed += checkInterval;
                     }
-                    throw new Error('Input field did not become visible within 30 seconds');
+
+                    process.stdout.write(chalk.red('Input field not visible within 30 seconds.\n'));
+                    isReferralSuccessful = false; // Mark as failed
                 };
 
                 await waitForInputField();
-                process.stdout.write(chalk.blue('Input field is now visible, filling random string...\n'));
+                displayLoadingBar(++step, totalSteps);
 
-                // Generate a random 6-digit alphanumeric string
-                const randomString = Math.random().toString(36).substring(2, 8);
-
-                await waitFor(1); // Wait 1 second
-                await melonPage.locator(inputFieldSelector).fill(randomString);
-                process.stdout.write(chalk.green(`Entered random string: ${randomString}\n`));
-
-                // Click the button after filling the input
-                await waitFor(1);
-                await melonPage.locator(buttonSelector).click();
-                process.stdout.write(chalk.blue('Clicked the button, waiting for 3 seconds...\n'));
-
-                // Wait for 3 seconds
-                await waitFor(3);
-
-                // Mark as successful
-                successCount++;
-                isReferralSuccessful = true; // Set success flag
-                process.stdout.write(chalk.green('Referral registration marked as successful!\n'));
-
+                // Final result after the loop
+                if (isReferralSuccessful) {
+                    successCount++;
+                    process.stdout.write(chalk.green(`Referral (${i}) successful!\n`));
+                } else {
+                    failCount++;
+                    process.stdout.write(chalk.red(`Referral (${i}) failed!\n`));
+                }
             } catch (error) {
-                process.stdout.write(chalk.red(`Error retrieving OTP: ${error.message}\n`));
+                process.stdout.write(chalk.red('Failed to retrieve OTP email within the timeout.\n'));
                 failCount++;
             }
-
         } catch (error) {
-            process.stdout.write(chalk.red(`Error during process: ${error.message}\n`));
+            process.stdout.write(chalk.red(`An error occurred: ${error.message}\n`));
             failCount++;
         } finally {
-            await context.close(); // Close the context after each iteration
-
-            if (!isReferralSuccessful) {
-                process.stdout.write(chalk.red('Referral failed!\n'));
-            }
+            await context.close();
+            await waitFor(2); // Wait 2 seconds before the next iteration
         }
-
-        displayLoadingBar(i, referralNumber);
-        process.stdout.write(chalk.yellow('\nIteration completed.\n'));
     }
 
     // Final summary
