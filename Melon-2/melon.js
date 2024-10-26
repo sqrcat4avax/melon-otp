@@ -96,24 +96,25 @@ function cleanUserData() {
         let isReferralSuccessful = false; // Tracking success of referral registration
 
         try {
-            // Step 1: Navigate to TempMailTo
+            // Step 1: Navigate to TempMail
             process.stdout.write(chalk.blue('Getting OTP Mail...\n'));
             displayLoadingBar(++step, totalSteps);
 
-            await tempMailPage.goto('https://tempmailto.org/');
+            await tempMailPage.goto('https://tempmail.lol/en/');
             await tempMailPage.waitForLoadState('load');
-            await waitFor(5);
+
+            await waitFor(5); // Wait for 5 seconds after page load
 
             // Step 2: Get the temporary email address
-            const emailElement = await tempMailPage.locator('xpath=/html/body/div[1]/header/div/div[2]/div/div[2]/div[2]/form/div/div[1]/div[1]/div');
+            const emailElement = await tempMailPage.locator('xpath=//*[@id="app"]/div/main/div/div/div[1]/p');
             const tempEmail = await emailElement.innerText();
 
-            fs.writeFileSync('melonMail.txt', tempEmail);
+            fs.writeFileSync('melonMail.txt', tempEmail); // Save the email to melonMail.txt
 
             // Step 3: Open the second tab for Melon Games
             displayLoadingBar(++step, totalSteps);
 
-            await melonPage.goto('https://melongames.io/?invite=IFKRYNWW');
+            await melonPage.goto('https://melongames.io/?invite=LIORTFGH');
             await melonPage.waitForLoadState('load');
 
             // Step 4: Perform actions on Melon Games page
@@ -154,13 +155,12 @@ function cleanUserData() {
 
             // Step 10: Wait for OTP email to appear (up to 30 seconds)
             process.stdout.write(chalk.magenta('Waiting for OTP email to appear (up to 30 seconds)...\n'));
-            const emailCheckLocator = tempMailPage.locator('xpath=/html/body/div[1]/div/main/div[1]/div/div[1]/div[2]/div/div[2]');
+            const emailCheckLocator = tempMailPage.locator('xpath=//*[@id="app"]/div/main/div/div/div[2]/div/div[2]/div/div');
 
             try {
-                await emailCheckLocator.waitFor({ state: 'visible', timeout: 30000 });
-                const otpText = await emailCheckLocator.innerText();
-
-                // Extract the OTP code using regex for 6-digit number
+                await emailCheckLocator.waitFor({ state: 'visible', timeout: 10000 });
+                const otpTextElement = await tempMailPage.locator('xpath=//*[@id="app"]/div/main/div/div/div[2]/div/div[2]/div/div/p[2]');
+                const otpText = await otpTextElement.innerText();
                 const otpCode = otpText.match(/\d{6}/)[0];
 
                 process.stdout.write(chalk.green(`OTP code retrieved: ${otpCode}\n`));
@@ -181,7 +181,7 @@ function cleanUserData() {
                     await inputField.scrollIntoViewIfNeeded();
 
                     process.stdout.write(chalk.yellow(`Waiting 1 second before entering digit ${i + 1}...\n`));
-                    await waitFor(1);
+                    await waitFor(1); // Wait 1 second
 
                     await inputField.click({ timeout: 5000 });
                     await inputField.fill(digits[i]);
