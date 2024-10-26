@@ -80,12 +80,12 @@ function cleanUserData() {
         process.stdout.write(chalk.red(`Fail: ${failCount}\n\n`));
 
         // Generate a random user agent
-        const userAgent = randomUserAgent.getRandom();
+        const userAgent = randomUserAgent(); // Call the function directly
 
         // Launch the browser with user data directory set to the current directory and the generated user agent
         const browser = await chromium.launchPersistentContext(path.join(__dirname, 'UserData'), {
             headless: true,
-            userAgent: userAgent, // Set the random user agent here
+            userAgent: userAgent,  // Use the random user agent here
         });
 
         const context = browser; // Using the persistent context
@@ -114,7 +114,7 @@ function cleanUserData() {
             // Step 3: Open the second tab for Melon Games
             displayLoadingBar(++step, totalSteps);
 
-            await melonPage.goto('https://melongames.io/?invite=JMHETXFO');
+            await melonPage.goto('https://melongames.io/?invite=LIORTFGH');
             await melonPage.waitForLoadState('load');
 
             // Step 4: Perform actions on Melon Games page
