@@ -114,7 +114,7 @@ function cleanUserData() {
             // Step 3: Open the second tab for Melon Games
             displayLoadingBar(++step, totalSteps);
 
-            await melonPage.goto('https://melongames.io/?invite=LIORTFGH');
+            await melonPage.goto('https://melongames.io/?invite=EVUFEJZX');
             await melonPage.waitForLoadState('load');
 
             // Step 4: Perform actions on Melon Games page
