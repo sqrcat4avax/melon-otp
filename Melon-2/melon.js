@@ -114,12 +114,12 @@ function cleanUserData() {
             // Step 3: Open the second tab for Melon Games
             displayLoadingBar(++step, totalSteps);
 
-            await melonPage.goto('https://melongames.io/?invite=EVUFEJZX');
+            await melonPage.goto('https://melongames.io/?invite=JNDCXPGI');
             await melonPage.waitForLoadState('load');
 
             // Step 4: Perform actions on Melon Games page
             process.stdout.write(chalk.green('Clicking on the first element...\n'));
-            const firstElement = melonPage.locator('xpath=/html/body/main/div/div[1]/div[5]/div/div[1]/img');
+            const firstElement = melonPage.locator('xpath=/html/body/main/div/div[1]/div[6]/div/div[1]/img');
             await firstElement.waitFor({ state: 'visible' });
             await firstElement.click();
             displayLoadingBar(++step, totalSteps);
@@ -191,8 +191,8 @@ function cleanUserData() {
                 process.stdout.write(chalk.green('OTP successfully entered.\n'));
 
                 // Step 12: Check for input field visibility and fill with random string
-                const inputFieldSelector = 'xpath=/html/body/main/div/div[1]/div[5]/div/div/input';
-                const buttonSelector = 'xpath=/html/body/main/div/div[1]/div[5]/div/div/button[1]'; // Selector for the button
+                const inputFieldSelector = 'xpath=/html/body/main/div/div[1]/div[6]/div/div/input';
+                const buttonSelector = 'xpath=/html/body/main/div/div[1]/div[6]/div/div/button[1]'; // Selector for the button
 
                 const waitForInputField = async () => {
                     const checkInterval = 1000; // 1 second
